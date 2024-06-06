@@ -1,0 +1,267 @@
+---
+title             : "Supplementary for: Mapping industrial activities in European marine protected areas"
+
+author: 
+  - name          : "Raphael Seguin"
+    affiliation   : "1"
+    corresponding : yes    # Define only one corresponding author
+    address       : ""
+    email         : "raphaelseguin@protonmail.com"
+    role: # Contributorship roles (e.g., CRediT, https://credit.niso.org/)
+      - "Conceptualization"
+      - "Writing - Original Draft Preparation"
+      - "Writing - Review & Editing"
+  - name          : "David Mouillot"
+    affiliation   : "1"
+    role:
+      - "Writing - Review & Editing"
+      - "Supervision"
+
+affiliation:
+  - id            : "1"
+    institution   : "MARBEC, Univ Montpellier, CNRS, IFREMER, IRD, Montpellier, France.
+Institut Universitaire de France, Paris, France."
+  - id            : "2"
+    institution   : "Konstanz Business School"
+
+authornote: ""
+
+bibliography      : "r-references-supp.bib"
+csl: conservation-letters.csl
+
+floatsintext      : no
+linenumbers       : yes
+draft             : no
+mask              : no
+
+figurelist        : no
+tablelist         : no
+footnotelist      : no
+
+classoption       : "man"
+output            : papaja::apa6_word
+---
+
+
+```{r setup, include = FALSE}
+library(papaja)
+library(tidyverse)
+library(janitor)
+library(sf)
+library(raster)
+library(rnaturalearth)
+library(ggspatial) 
+library(ggthemes)
+
+load("output/mpa_eu_wdpa.Rdata")
+load("output/mpa_pressures.Rdata") 
+load("output/europe_grid.Rdata")
+
+r_refs("r-references-supp.bib")
+```
+
+```{r analysis-preferences}
+# Seed for random number generation
+set.seed(42)
+knitr::opts_chunk$set(cache.extra = knitr::rand_seed)
+```
+
+# Supplementary information
+
+## Industrial activities
+
+We selected six industrial activities with proven detrimental impacts on ocean ecosystems: industrial fishing, the presence of non-publicly tracked fishing vessels through AIS, marine artifical structures (MAS) including oil and gas installations, offshore wind farms or aquaculture farms, dredging and marine aggregate extraction, desalination plants, maritime ports [@grorud2021mpa]. We also calculate the presence and extent of maritime shipping and transport in each cell, and human gravity. Both of these are not considered as industrial activities in this study, but they're presence could still be detrimental to marine biodiversity and MPA effectiveness. The full procedure to obtain all industrial activities is desribed in the supplementary material. 
+
+### Industrial fishing
+
+According to the IUCN, industrial fishing states that "in the context of protected areas, industrial fishing is defined as (\>12 m long x 6 m wide) motorised vessels" [@iucn2020066]. In the EU, all fishing vessels larger than 15m are required to broadcast their position using the Automatic Identification System (AIS). Following this definition, all fishing vessels broadcasting AIS can therefore be considered as industrial fishing in the context of protected areas.
+
+Therefore, in order to estimate industrial fishing in each grid cell, we used fishing effort estimated by Global Fishing Watch through Automatic Identification System (AIS) during the 2023 period, at a daily resolution of 0.01° [@kroodsma2018tracking]. Using the European registry of fishing vessels, we only kept fishing vessels with a declared gear to avoid wrong classifications of non-fishing vessels as fishing vessels. In each cell, we calculated the presence of fishing as a binary variable, the sum of fishing hours (all gears confounded) in 2023 and the fishing density (number of fishing hours per km\^2). We also calculated the mean length of fishing vessels and the number of different fishing vessels in each cell.
+
+### Untracked fishing vessels
+
+Although all fishing vessels in the EU are required to broadcast their position using AIS, some fishing vessels may disable or tamper with their AIS device in order to avoid detection. These vessels can be detected using satellite imagery such as Synthetic Aperture Radar (SAR) imagery. We use a recently published dataset which combined satellite imagery, vessel GPS data and deep-learning models to map industrial fishing vessel across the world's coastal waters from 2017 to 2021. Using AIS and satellite imagery, the authors matched AIS detections to satellite detections when possible (publicly tracked fishing vessels), and, if a satellite detection was unmatched to AIS, then the fishing vessel is considered as untracked [@paolo2024satellite]. We keep only untracked fishing vessels in 2021 and, for each grid cell, calculate the presence of untracked fishing vessels and the number of untracked fishing vessel. We select only fishing vessels with a probability of 80% or higher of being a fishing vessel according to the classification algorithm, and select only fishing vessels between 15 and 145m long.
+
+### Marine Artificial Structures
+
+In order to standardize the detection of marine artificial structures (MAS), we used the same dataset as previously described which also detect offshore structures through satellite imagery. The detected MAS were then classified as wind infrastructures, oil infrastructures, and other infrastructures (such as piers, power lines and aquaculture). In each grid cell, we calculate the presence of MAS, the total number of MAS and then the number of each type of structure (oil, wind and other).
+
+### Dredging and aggregate extraction
+
+```{r, echo = F, results = F, message = F}
+source("R/load_aggregate.R")
+aggregate <- load_aggregate() 
+
+source("R/load_dredge.R")
+dredge <- load_dredge()
+```
+
+Aggregate extraction refers to the process of extracting marine sediment such as sand, gravel, and other aggregates from the seabed or coastal areas. These materials are used for various construction purposes, beach nourishment, or agronomics. The extraction process typically involves dredging or suctioning aggregates from the seabed using specialized vessels or equipment. These materials are then transported to shore for processing and distribution.
+
+Marine dredging specifically refers to the process of excavating and removing sediments, sand, gravel, or other materials from the bottom of bodies of water such as oceans, seas, estuaries, and coastal areas.
+
+For aggregate extraction, we used the dataset created in 2014 for the European Marine Observation and Data Network (EMODnet).It is the result of the aggregation and harmonization of datasets provided by several sources from all across the EU, and is available for viewing and download on EMODnet web portal (Human Activities, <https://emodnet.ec.europa.eu/en/human-activities>). The dataset contains points representing aggregate extraction sites in the following countries: Belgium, Denmark, Finland, France, Germany, Ireland, Italy, Lithuania, Poland, Portugal, Spain, Sweden, The Netherlands. Therefore, data for Malta, Greece, Cyprus, Croatia, Slovenia, Latvia and Estonia are potentially missing in our study. In the 2023 update, extraction data until 2022 and new areas have been included. Seeing as aggregate extraction refers to a specific point in time, for points which fall inside an MPA we only kept aggregate extractions occurring after the MPA's creation year. A total of `r nrow(aggregate)` aggregate extraction sites were included
+
+For dredging, we used the dataset created in 2014 for the European Marine Observation and Data Network (EMODnet). It is the result of the aggregation and harmonization of datasets provided by several sources from all across the European countries. It is available for viewing and download on EMODnet web portal (Human Activities, <https://emodnet.ec.europa.eu/en/human-activities>). The dataset contains points representing dredging sites in the following countries: Belgium, Bulgaria, Cyprus, Denmark, Estonia, Finland, France, Germany, Greece, Iceland, Ireland, Italy, Latvia, Lithuania, Malta, Norway, Poland, Portugal, Spain, Sweden, and The Netherlands. The main purposes of dredging included in this dataset are: (1) Maintenance dredging, meaning the periodic removal of sediment, debris, or other materials from waterways, ports, harbors, or other navigational channels to ensure safe and efficient passage for vessels, (2) capital dredging refers to the excavation and removal of sediments, rocks, or other materials from water bodies to create new or deepen existing waterways, ports, harbors, or other marine infrastructure, (3) environmental dredging involves the removal of contaminated sediments, pollutants, or hazardous materials from water bodies as part of environmental remediation efforts, (4) cable or pipeline, which involves excavating trenches or removing sediments to lay underwater cables, pipelines, or other submerged infrastructure for telecommunications, energy transmission, or other purposes. Seeing as capital, environmental and cable or pipeline dredging are mainly punctual operations, we only keep dredging operations made for maintenance. A total of `r nrow(dredge)` dredging sites were included.
+
+Both techniques are highly damaging to seabed ecosystems and on marine biodiversity [@newell1998impact; @thrush2002disturbance; @tillin2011direct; @todd2015review; @erftemeijer2012environmental]. Seeing as the impacts of both techniques are similar, we combine both techniques in the final pressures data frame.
+
+### Desalination plants
+
+```{r, echo = F, results = F, message = F}
+source("R/load_desalination.R")
+desalination <- load_desalination()
+```
+
+Desalination plants are facilities specifically designed to convert seawater into freshwater by removing salt and other impurities. During the process, the concentrated brine generated during the desalination process is discharged back into the ocean and can have negative impacts on marine ecosystems [@roberts2010impacts]. We used the database on desalination plants from the European Marine Observation and Data Network (EMODnet). The dataset provides spatial information (point) on the centroid of the municipality where a given plant is located. It is available for viewing and download on EMODnet - Human Activities web portal (www.emodnet-humanactivities.eu) and is updated every year. The dataset covers the following countries: Albania, Austria, Belgium, Belarus, Bosnia and Herzegovina, Bulgaria, Croatia, Cyprus, Czech Republic, Denmark, Finland, France, Georgia, Germany, Gibraltar, Greece, Guernsey, Hungary, Ireland, Italy, Jersey, Latvia, Liechtenstein, Lithuania, Luxembourg, Malta, Moldova, Netherlands, Norway, Poland, Portugal, Romania, Russia, Serbia, Slovakia, Slovenia, Spain, Sweden, Switzerland, Turkey, UK, Ukraine. We only use desalination plants using seawater and located directly on the coastline. A total of `r nrow(desalination)`plants were selected.
+
+### Maritime ports
+
+For maritime ports, we use the World Port Index, showing the location, characteristics, facilities, and services offered by major ports around the world (<https://msi.nga.mil/Publications/WPI>). In each grid cell, we calculate the presence of ports and the number of ports.
+
+\newpage
+
+```{r figure-S1, fig.cap = paste("Map of the", nrow(mpa_eu_wdpa), "marine protected areas (in blue) considered in this study."), out.width = "1122.52px"}
+
+knitr::include_graphics("/Users/raphael/Documents/These/R_projects/MPA_threats_europe/figures/fig_S1.jpg")
+
+```
+
+```{r figure-S2, fig.cap = paste("Distribution of the", nrow(mpa_pressures), "cells across all Economic Exclusive Zones of the European Union. Each cell is categorized as protected if it overlapped with a marine protected or if 50% of the cell was protected (n = ", nrow(mpa_pressures %>% filter(match_status == "Protected")),"), unprotected and matched it it was unprotected and matched to a protected cell using coarsened exact matching (n = ", nrow(mpa_pressures %>% filter(match_status == "Matched")),") or unmatched and unprotected if it was unprotected and unmatched using the matching algorithm (n = ",nrow(mpa_pressures %>% filter(match_status == "Unmatched")),")."),,out.width = "1122.52px"}
+
+knitr::include_graphics("/Users/raphael/Documents/These/R_projects/MPA_threats_europe/figures/fig_S2.jpg")
+
+```
+
+```{r figure-S3, fig.cap = "Map showing how cells were classified as protected or unprotected. If at least 50% of the cell was protected, then it was classified as protected, else as unprotected.",out.width = "1122.52px"}
+
+knitr::include_graphics("/Users/raphael/Documents/These/R_projects/MPA_threats_europe/figures/fig_S3.jpg")
+
+```
+
+```{r figure-S4, fig.cap = paste("Distribution of the",nrow(mpa_pressures),"cells across the six large marine ecosystems considered in this study."),out.width = "1122.52px"}
+
+knitr::include_graphics("/Users/raphael/Documents/These/R_projects/MPA_threats_europe/figures/fig_S4.jpg")
+
+```
+
+```{r figure-SX, fig.cap = "Covariate balance for Coarsened exact matching",out.width = "1122.52px"}
+
+knitr::include_graphics("/Users/raphael/Documents/These/R_projects/MPA_threats_europe/figures/CEM_plot.jpg")
+
+```
+
+```{r figure-SX2, fig.cap = "Covariate balance for Propensity score matching",out.width = "1122.52px"}
+
+knitr::include_graphics("/Users/raphael/Documents/These/R_projects/MPA_threats_europe/figures/PSM_plot.jpg")
+
+```
+
+```{r figure-S5, fig.cap = "Distribution of the number of industrial activities per cell across all protected, matched and unmatched cells.",out.width = "1122.52px"}
+
+knitr::include_graphics("/Users/raphael/Documents/These/R_projects/MPA_threats_europe/figures/fig_S5.jpg")
+
+```
+
+```{r figure-S6, fig.cap = "Average number of industrial activities per protected, matched and unmatched cell across all countries. Slovenia was removed because the country contained only unmatched cells.",out.width = "1122.52px"}
+
+knitr::include_graphics("/Users/raphael/Documents/These/R_projects/MPA_threats_europe/figures/fig_S6.jpg")
+
+```
+
+```{r figure-S7, fig.cap =  "Presence of industrial fishing across all cells.",out.width = "1122.52px"}
+
+knitr::include_graphics("/Users/raphael/Documents/These/R_projects/MPA_threats_europe/figures/fig_S7.jpg")
+
+```
+
+```{r figure-S8, fig.cap = "Sum of fishing hours per cell (log-scale) across all cells.",out.width = "1122.52px"}
+
+knitr::include_graphics("/Users/raphael/Documents/These/R_projects/MPA_threats_europe/figures/fig_S8.jpg")
+
+```
+
+```{r figure-S9, fig.cap = "Average fishing effort per cell (excluding zeroes) across protected, matched and unmatched cells for all countries",out.width = "1122.52px"}
+
+knitr::include_graphics("/Users/raphael/Documents/These/R_projects/MPA_threats_europe/figures/fig_S9.jpg")
+
+```
+
+```{r figure-S10, fig.cap = "Presence of untracked fishing vessels across all cells.",out.width = "1122.52px"}
+
+knitr::include_graphics("/Users/raphael/Documents/These/R_projects/MPA_threats_europe/figures/fig_S10.jpg")
+
+```
+
+```{r figure-S11, fig.cap = "Number of untracked fishing vessels (log-scale) per cell across the EU.",out.width = "1122.52px"}
+
+knitr::include_graphics("/Users/raphael/Documents/These/R_projects/MPA_threats_europe/figures/fig_S11.jpg")
+
+```
+
+```{r figure-S12, fig.cap = "Average number of untracked fishing vessels per cell (excluding zeroes) for protected, matched and unmatched cell across all countries.",out.width = "1122.52px"}
+
+knitr::include_graphics("/Users/raphael/Documents/These/R_projects/MPA_threats_europe/figures/fig_S12.jpg")
+
+```
+
+```{r figure-S13, fig.cap = "Distribution of marine artificial structures (MAS) across the EU. Points represent the centroid of the 5*5km cells. Point size and color represents the number of each MAS for each point (log-scale).",out.width = "1122.52px"}
+
+knitr::include_graphics("/Users/raphael/Documents/These/R_projects/MPA_threats_europe/figures/fig_S13.jpg")
+
+```
+
+```{r figure-S14, fig.cap = "",out.width = "1122.52px"}
+
+knitr::include_graphics("/Users/raphael/Documents/These/R_projects/MPA_threats_europe/figures/fig_S14.jpg")
+
+```
+
+```{r figure-S15, fig.cap = "Average number of MAS (excluding zeroes) per protected, matched and unmatched cell across all countries.",out.width = "1122.52px"}
+
+knitr::include_graphics("/Users/raphael/Documents/These/R_projects/MPA_threats_europe/figures/fig_S15.jpg")
+
+```
+
+```{r figure-S16, fig.cap = "Average number of oil and gas, offshore wind and other MAS (excluding zeroes) per protected, matched and unmatched cell across all countries.",out.width = "1122.52px"}
+
+knitr::include_graphics("/Users/raphael/Documents/These/R_projects/MPA_threats_europe/figures/fig_S16.jpg")
+
+```
+
+```{r figure-S17, fig.cap = "Distribution of dredging/marine aggregate extraction across the EU. Points represent centroids of 5*5km cells. Point size and color represents the number of dredging activities in the cell (log-scale).",out.width = "1122.52px"}
+
+knitr::include_graphics("/Users/raphael/Documents/These/R_projects/MPA_threats_europe/figures/fig_S17.jpg")
+
+```
+
+```{r figure-S18, fig.cap = "Average number of dredging activities (excluding zeroes) per protected, matched and unmatched cells across all countries.",out.width = "1122.52px"}
+
+knitr::include_graphics("/Users/raphael/Documents/These/R_projects/MPA_threats_europe/figures/fig_S18.jpg")
+
+```
+
+```{r figure-S19, fig.cap = "Distribution of desalination plants across the EU. Each point represents on desalination plant.",out.width = "1122.52px"}
+
+knitr::include_graphics("/Users/raphael/Documents/These/R_projects/MPA_threats_europe/figures/fig_S19.jpg")
+
+```
+
+```{r figure-S20, fig.cap = "Distribution of maritime ports across the EU. Each point represents one port.",out.width = "1122.52px"}
+
+knitr::include_graphics("/Users/raphael/Documents/These/R_projects/MPA_threats_europe/figures/fig_S20.jpg")
+
+```
+
+```{r figure-S21, fig.cap = "Average number of ports per protected, matched and unmatched cell across all countries.",out.width = "1122.52px"}
+
+knitr::include_graphics("/Users/raphael/Documents/These/R_projects/MPA_threats_europe/figures/fig_S21.jpg")
+
+```
+
+\newpage
+
+# References
+
+::: {#refs custom-style="Bibliography"}
+:::

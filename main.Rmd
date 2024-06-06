@@ -1,0 +1,227 @@
+---
+title             : "Mapping industrial activities in European marine protected areas"
+
+author: 
+  - name          : "Raphael Seguin"
+    affiliation   : "1"
+    corresponding : yes    # Define only one corresponding author
+    address       : ""
+    email         : "raphaelseguin@protonmail.com"
+    role: # Contributorship roles (e.g., CRediT, https://credit.niso.org/)
+      - "Conceptualization"
+      - "Writing - Original Draft Preparation"
+      - "Writing - Review & Editing"
+  - name          : "David Mouillot"
+    affiliation   : "1"
+    role:
+      - "Writing - Review & Editing"
+      - "Supervision"
+
+affiliation:
+  - id            : "1"
+    institution   : "MARBEC, Univ Montpellier, CNRS, IFREMER, IRD, Montpellier, France.
+Institut Universitaire de France, Paris, France."
+  - id            : "2"
+    institution   : "Konstanz Business School"
+
+authornote: |
+
+abstract: |
+  One or two sentences providing a **basic introduction** to the field,  comprehensible to a scientist in any discipline.
+  Two to three sentences of **more detailed background**, comprehensible  to scientists in related disciplines.
+  One sentence clearly stating the **general problem** being addressed by  this particular study.
+  One sentence summarizing the main result (with the words "**here we show**" or their equivalent).
+  Two or three sentences explaining what the **main result** reveals in direct comparison to what was thought to be the case previously, or how the  main result adds to previous knowledge.
+  One or two sentences to put the results into a more **general context**.
+  Two or three sentences to provide a **broader perspective**, readily comprehensible to a scientist in any discipline.
+  
+keywords          : "keywords"
+wordcount         : "X"
+
+bibliography      : "r-references.bib"
+csl: conservation-letters.csl
+
+floatsintext      : no
+linenumbers       : yes
+draft             : no
+mask              : no
+
+figurelist        : no
+tablelist         : no
+footnotelist      : no
+
+classoption       : "man"
+output            : papaja::apa6_word
+---
+
+```{r setup, include = FALSE}
+library(papaja)
+library(tidyverse)
+library(janitor)
+library(sf)
+library(raster)
+
+r_refs("r-references.bib")
+```
+
+```{r analysis-preferences}
+# Seed for random number generation
+set.seed(42)
+knitr::opts_chunk$set(cache.extra = knitr::rand_seed)
+```
+
+# Introduction
+
+The global degradation of marine biodiversity has prompted a significant expansion of the Marine Protected Areas (MPAs) network and the establishment of ambitious international targets to protect 30% of the ocean by 2030. When adequately implemented and enforced, MPAs can lead to positive ecological outcomes, including healthier marine ecosystems and enhanced biodiversity [@grorud2021mpa; @lester2009biological; @zupan2018marine; @letessier2024divergent]. Furthermore, MPAs can deliver substantial social and economic benefits to local communities, improving livelihoods and well-being, and contribute to climate resilience by supporting carbon sequestration and mitigating climate change impacts [@ban2019well; @georgian2022scientists; @grorud2021mpa; @sala2021protecting]. MPAs can be categorized into two primary types: fully protected MPAs, which prohibit all extractive activities and may allow certain non-extractive activities such as diving, and partially protected areas, which restrict specific extractive activities while permitting others, such as artisanal fishing [@day2012guidelines; @sala2018no]. The International Union for the Conservation of Nature (IUCN) further defines these protection levels, ranging from IUCN category I (strict protection, such as no-take or no-entry MPAs) to category IV (partial protection). According to the IUCN, all industrial activities are incompatible with marine protection and should be excluded from MPAs. Specifically, the IUCN states that: "*effective management of marine protected areas (MPAs) requires that they do not have any environmentally damaging industrial activities or infrastructural developments located in, adjacent to, or otherwise negatively affecting them, and calls on governments to prohibit environmentally damaging industrial activities and infrastructure development in all IUCN categories of protected area*" [@iucn2020066].
+
+As of May 2024, 8% of the ocean is under protection, with 2.9% under full or high protection [@unep_wcmc_iucn_2023]. In the European Union, the MPA network covers X% of territorial waters as of 2023. Several countries claim to have already achieved the 30% marine protection target set by the recently adopted Kunming-Montreal Global Biodiversity Framework and the EU’s Biodiversity Strategy for 2030 [@cbd_2022; @eu_commission_2020]. Despite these claims, many of these MPAs do not adhere to IUCN guidelines, yet are reported in the World Database on Protected Areas (WDPA) and count towards international targets [@day2012guidelines; @grorud2021mpa; @pike2024ocean]. Furthermore, many MPAs are often established to quickly meet international agreements and achieve political victories, without real progress towards genuine ocean protection [@sala2018assessing; @georgian2022scientists; @devillers2015reinventing]. Designating an area as protected does not automatically ensure effective protection of marine biodiversity: to deliver tangible conservation and socio-economic benefits, MPAs must effectively exclude or mitigate human pressures on the environment. Multiple studies now indicate that many MPAs still permit destructive activities and fail to control industrial fishing. In the EU, for instance, bottom trawling intensity is higher inside MPAs than outside. Consequently, many MPAs, although counted as progress towards international targets, do not yield significant biodiversity or socio-economic outcomes [@pike2024ocean; @dureuil2018elevated; @perry2022extensive].
+
+While it is increasingly evident that most MPAs in the EU do not provide effective protection against industrial fishing pressure, the extent to which MPAs are threatened by all maritime industrial activities remains unclear. Estimating this is critical given the rapid expansion of the ocean industry and the growth of new maritime industries such as offshore wind [@paolo2024satellite]. Human maritime activities are not well quantified and are challenging to estimate due to the scope and highly heterogeneous availability of datasets on maritime industrial activities, making standardization and comparisons across MPAs in different zones difficult.
+
+In this study, we utilize a combination of public data sources and satellite imagery to provide the first comprehensive estimate of industrial activities within EU MPAs as of 2023. We focus on six key maritime industrial activities: (1) industrial fishing, estimated using automatic identification system (AIS) vessel tracking data from Global Fishing Watch, (2) the presence of “dark” fishing vessels (those without AIS signals detected via satellite imagery), (3) the presence of marine artificial structures (MAS) such as oil and gas installations, offshore wind farms, aquaculture facilities, (4) marine sediment extraction (dredging and aggregate), (5) desalination plants, and (6) maritime ports. All these activities have the potential to harm marine biodiversity and compromise MPA effectiveness and, according to IUCN criteria, are considered industrial activities and should be prohibited within MPAs [@iucn2020066; @day2012guidelines; @grorud2021mpa]. We aim to answer the following questions: (1) Do protected areas effectively reduce the presence of industrial activities across the EU? and (2) Are the numbers of industrial activities lower inside protected areas than outside ? By addressing these questions, this study aims to provide critical insights into the true effectiveness of MPAs in the EU, highlighting the need for stricter enforcement and better management practices to achieve genuine marine conservation.
+
+# Methods
+
+## Marine protected area data
+
+```{r MPA data, echo= F}
+
+mpa_wdpa <- bind_rows(st_read(dsn = "data/shapefiles/MPA/WDPA_Oct2023_Public_shp_0",
+                                layer = "WDPA_Oct2023_Public_shp-polygons",
+                                quiet = TRUE),
+                        st_read(dsn =
+                                  "data/shapefiles/MPA/WDPA_Oct2023_Public_shp_1",
+                                layer = "WDPA_Oct2023_Public_shp-polygons",
+                                quiet = TRUE),
+                        st_read(dsn =
+                                  "data/shapefiles/MPA/WDPA_Oct2023_Public_shp_2",
+                                layer = "WDPA_Oct2023_Public_shp-polygons",
+                                quiet = TRUE)) %>%
+      clean_names() %>%
+    dplyr::filter(marine %in% c(1,2))
+
+mpa_wdpa_eu <- mpa_wdpa %>%
+   filter(iso3 %in% c("DEU","AUT","BEL","BGR","CYP","HRV","DNK","ESP","EST","FIN","FRA","FRA;ITA;MCO","GRC","HUN","IRL","ITA",
+                       "LVA","LTU","LUX","MLT","NLD","POL","PRT","CZE","ROU","SVK","SVN","SWE")) %>%
+  filter(iso3 != "ABNJ") 
+
+mpa_wdpa_status <- mpa_wdpa_eu %>%
+   dplyr::filter(status_yr != 0) 
+
+mpa_wdpa_2023 <- mpa_wdpa_status %>%
+    filter(status_yr < 2023)
+
+mpa_wdpa_designated <- mpa_wdpa_2023 %>%
+   filter(!status %in% c("Proposed","Established","Not Reported"))
+
+load("output/mpa_eu_wdpa.Rdata")
+```
+
+We used the World Database on Protected Areas (WDPA, downloaded February 2024), the global authoritative database of terrestrial and marine protected areas (www.protectedplanet.net). We selected the `r format(length(unique(mpa_wdpa_eu$wdpaid)),big.mark=",")` MPAs inside EU countries. We selected the `r format(length(unique(mpa_wdpa_status$wdpaid)),big.mark=",")` MPAs for which the year the MPA was created was available, and the declaration year was before 2023. We then selected `r format(length(unique(mpa_wdpa_designated$wdpaid)),big.mark=",")` MPAs with designated status (removing all MPAs with a status reported as ‘Proposed’, ‘Established’, ‘Not reported’). The final selection resulted in a total of `r format(length(unique(mpa_eu_wdpa$id)),big.mark=",")` MPAs.
+
+## Gridded data
+
+```{r, echo = F}
+load("output/europe_grid.Rdata")
+load("output/mpa_pressures.Rdata")
+```
+
+We created a grid of 5 by 5 km cells covering all Economic Exclusive Zones (EEZs) of the European Union (UE), comprising `r length(unique(europe_grid$SOVEREIGN1))` countries, downloaded from Marine Regions (<https://marineregions.org/>), and created a unique identifier for each grid cell. We intersected this grid with the `r length(unique(mpa_eu_wdpa$id))` MPA polygons. If an MPA was within a grid cell, then the cell was considered as "protected", and if no MPA intersected with the cell, it was considered as "unprotected". If an MPA partly intersected with a cell, the cell was considered as protected only if over 12.5 km² of the cell was covered by an MPA (50% of the cell). We use this threshold as a conservative estimate to avoid missclassifying some industrial activities as occurring within protected areas, but accounting for the fact that some industrial activities have an impact spreading around their exact location (e.g, noise or chemical pollution) and may impact an MPA even if not directly inside it. If multiple MPAs of different management regimes overlapped within the same cell, we kept the MPA with the strictest IUCN category. Finally, we joined the grid cell with the Large Marine Ecosystems (LMEs) classification . Our study area comprised `r length(unique(europe_grid$LME_NAME))` LMEs: Mediterranean sea, Canary current, Iberian current, Celtic-Biscay shelf, North sea, Baltic sea.
+
+## Matching
+
+In order to consider the non-random placement of PAs within countries, we used coarsened exact matching (CEM) using social and economic covariates. We selected CEM after testing propensity score matching (PSM), showing that CEM was superior to PSM in our case. This allowed us to compare protected cells with unprotected cells across countries and with the closest match for social and environmental conditions. To match cells, we used covariates linked to the placement of an MPA: (1) country, to account for differences in MPA definition, management and placement across countries, (2) depth (3) distance to the coast, to account for differences in coastal versus marine MPAs, and the fact that some industrial activities are only coastal (desalination plants, ports) whereas some can be both coastal and pelagic (fishing) and (4) Local gross domestic product (GDP) to account for the fact that wealth can influence conservation, industrial pressures and the response to these pressures. 
+
+We then estimated the performance of each MPA by calculating the mean cumulated number of industrial activities per cell, and the mean number of each industrial activity per cell, and compared this to the same means for all matched unprotected cells. As a result, we were able to assess each MPA individually while taking socioeconomic background and geographic variations into consideration.
+
+## Statistical analyses
+
+We first compared the cumulated number of industrial activities in each cell, with possibles values ranging from zero (no industrial activities) to six (all industrial activities occuring in the same cell). To understand if the number of industrial activity per cell was lower inside protected areas, we used a Wilcoxon test (alternative = "less", meaning that the test is assessing whether the median of the protected cells is significantly less than the median of the matched cells) on all protected and matched cells. We then tested if industrial activities were higher inside protected cells than outside using the same test with a "greater" alternative hypothesis (meaning that the test is assessing whether the median of protected cells is significantly greater than the median of matched cells).
+
+We then compared the number of each industrial activity inside protected and matched cells, keeping only cells where the value of each industrial activity was higher than 0. For instance, to count the number of marine artificial structures (MAS) per cell, we selected only the cells with MAS within them and counted the number of MAS within protected and matched cells. We then performed the same statistical test (Wilcoxon test with less and greater alternative hypotheses). 
+
+<!-- We used `r cite_r("r-references.bib", withhold = TRUE)` for all our analyses. -->
+
+# Results
+
+```{r, echo = F, results = F, message = F}
+
+load("output/mpa_pressures.Rdata")
+protected <-  mpa_pressures %>% filter(match_status == "Protected")
+unprotected <- mpa_pressures %>% filter(match_status == "Matched")
+unprotected_unmatched <-  mpa_pressures %>% filter(match_status == "Unmatched")
+
+protected_matched <- mpa_pressures %>% filter(match_status %in% c("Protected","Matched"))
+
+```
+
+We divided European Union (EU) Exclusive Economic Areas (EEZs) in 5 by 5 km grid, resulting in a total of `r format(nrow(mpa_pressures),big.mark=",")` grids. Among these grids, `r format(nrow(mpa_pressures %>% filter(match_status == "Protected")),big.mark=",")` were classified as protected (`r round(nrow(mpa_pressures %>% filter(match_status == "Protected"))/nrow(mpa_pressures) * 100,2)`%), `r format(nrow(mpa_pressures %>% filter(match_status == "Matched")),big.mark=",")` as unprotected and matched to protected cells according to their country, local GDP, depth and distance to the coast (`r round(nrow(mpa_pressures %>% filter(match_status == "Matched"))/nrow(mpa_pressures) * 100,2)`%), and `r format(nrow(mpa_pressures %>% filter(match_status == "Unmatched")),big.mark=",")` as unprotected and unmatched (`r round(nrow(mpa_pressures %>% filter(match_status == "Unmatched"))/nrow(mpa_pressures) * 100,2)`%). 
+
+The cumulated number of industrial activities in protected and matched cells, e.g. the presence of industrial fishing, unmatched fishing vessels, offshore structures, desalination plants, dredging and marine aggregate extraction, and maritime ports, ranged from `r min(protected_matched$sum_pressures,na.rm=T)` industrial activities to a maximum of `r max(protected_matched$sum_pressures,na.rm=T)` industrial activities, with a mean of `r mean(protected_matched$sum_pressures,na.rm=T)` industrial activities per cell. The number of industrial activities was significantly higher inside protected cells (mean = `r mean(protected$sum_pressures, na.rm=T)` industrial activities per cell, sd = `r sd(protected$sum_pressures, na.rm=T)`) than inside matched cells (mean = `r mean(unprotected$sum_pressures, na.rm=T)` industrial activities per cell, sd = `r sd(unprotected$sum_pressures, na.rm=T)`, p \< 0.0001 according to the Wilcoxon test). Seeings as most industrial activities are coastal and that unmatched cells were almost exclusively far from the coast, the average number of industrial activities in unmatched cells was lower (`r mean(unprotected_unmatched$sum_pressures,na.rm=T)` industrial activities per cell, Figure \@ref(fig:figure-1)).
+
+```{r figure-1, fig.cap = "(A) Average number of industrial activities per cell. Red lines represent MPA borders. (B) Average number of industrial activities per cell inside protected, matched and unmatched cells.",out.width= "80%"}
+knitr::include_graphics("/Users/raphael/Documents/These/R_projects/MPA_threats_europe/figures/Figure_1.png")
+```
+
+**Industrial fishing**. Overall, `r nrow(protected_matched %>% filter(fishing_presence == 1))/nrow(protected_matched)*100` % of the `r format(nrow(protected_matched),big.mark=",")` protected and matched cells contained fishing, `r nrow(protected %>% filter(fishing_presence == 1))/nrow(protected)*100` % of all protected cells contained fishing, `r nrow(unprotected %>% filter(fishing_presence == 1))/nrow(unprotected)*100` % of matched cells contained fishing and `r nrow(unprotected_unmatched %>% filter(fishing_presence == 1))/nrow(unprotected_unmatched)*100` % of unmatched cells contained fishing. 
+
+Focusing on cells with fishing within them, fishing effort ranged from `r min(mpa_pressures$sum_fishing,na.rm=T)` to `r format(round(max(mpa_pressures$sum_fishing,na.rm=T),0),big.mark=",")` hours of fishing, with an average of `r mean((mpa_pressures %>% filter(sum_fishing > 0))$sum_fishing,na.rm=T)` hours of fishing per cell (sd = `r sd((mpa_pressures %>% filter(sum_fishing > 0))$sum_fishing,na.rm=T)` hours). The number of fishing hours per cell was significantly higher inside protected cells (mean = `r mean((protected %>% filter(sum_fishing > 0))$sum_fishing,na.rm=T)` hours, sd = `r sd((protected %>% filter(sum_fishing > 0))$sum_fishing,na.rm=T)` hours) than in matched cells (`r mean((unprotected %>% filter(sum_fishing > 0))$sum_fishing,na.rm=T)` hours, sd = `r sd((unprotected %>% filter(sum_fishing > 0))$sum_fishing,na.rm=T)` hours, p \< 0.0001).
+
+**Untracked fishing vessels**. Untracked fishing vessels - vessels not publicly tracked through AIS but detected via satellite imagery - were found in `r nrow(protected_matched %>% filter(unmatched_presence == 1))/nrow(protected_matched)*100` % of all protected and matched cells. Untracked fishing vessels were found in `r nrow(protected %>% filter(unmatched_presence == 1))/nrow(protected)*100`, `r nrow(unprotected %>% filter(unmatched_presence == 1))/nrow(unprotected)*100` % and `r nrow(unprotected_unmatched %>% filter(unmatched_presence == 1))/nrow(unprotected_unmatched)*100` % of protected, matched and unmatched cells respectively.
+
+Within cells with untracked fishing vessels within them, the number of untracked fishing vessels in each cell ranged between `r min(mpa_pressures$unmatched_number,na.rm=T)` and `r max(mpa_pressures$unmatched_number,na.rm=T)` untracked fishing vessels, with an average of `r mean((mpa_pressures %>% filter(unmatched_number > 0))$unmatched_number,na.rm=T)` untracked fishing vessels per cell (sd = `r sd((mpa_pressures %>% filter(unmatched_number > 0))$unmatched_number,na.rm=T)` untracked fishing vessels). The number of untracked fishing vessels was significantly lower inside protected cells (`r mean((protected %>% filter(unmatched_number > 0))$unmatched_number,na.rm=T)` untracked fishing vessels, sd = `r sd((mpa_pressures %>% filter(protected > 0))$unmatched_number,na.rm=T)`) than inside matched cells (`r mean((unprotected %>% filter(unmatched_number > 0))$unmatched_number,na.rm=T)` untracked fishing vessels, sd = `r sd((unprotected %>% filter(unmatched_number > 0))$unmatched_number,na.rm=T)`, p = 0.0179).
+
+**Offshore structures**. We used a previously published dataset detecting marine artificial structures (MAS) through satellite imagery. These structures are divided into three categories: oil infrastructure, offshore wind and other (piers, power lines or aquaculture). MAS were found in `r nrow(protected_matched %>% filter(offshore_presence == 1))/nrow(protected_matched)*100` % of all cells, oil infrastructure in `r nrow(protected_matched %>% filter(offshore_presence == 1 & oil > 0))/nrow(protected_matched)*100` % of the cells, offshore wind infrastructure in `r nrow(protected_matched %>% filter(offshore_presence == 1 & wind > 0))/nrow(protected_matched)*100` % of the cells and other marine infrastructures in `r nrow(protected_matched %>% filter(offshore_presence == 1 & other > 0))/nrow(protected_matched)*100` % of the cells. MAS were found in `r nrow(protected %>% filter(offshore_presence == 1))/nrow(protected)*100` % of protected cells ( `r nrow(protected%>% filter(offshore_presence == 1 & oil > 0))/nrow(protected)*100` %, `r nrow(protected%>% filter(offshore_presence == 1 & wind > 0))/nrow(protected)*100` % and `r nrow(protected %>% filter(offshore_presence == 1 & other > 0))/nrow(protected)*100` % for oil, wind and others respectively), `r nrow(unprotected %>% filter(offshore_presence == 1))/nrow(unprotected)*100` % of  matched cells (`r nrow(unprotected %>% filter(offshore_presence == 1 & oil > 0))/nrow(unprotected)*100` %, `r nrow(unprotected %>% filter(offshore_presence == 1 & wind > 0))/nrow(unprotected)*100`% and `r nrow(unprotected %>% filter(offshore_presence == 1 & other > 0))/nrow(unprotected)*100` % for oil, wind and others) and `r nrow(unprotected_unmatched %>% filter(offshore_presence == 1))/nrow(unprotected_unmatched)*100` % for unmatched cells (`r nrow(unprotected_unmatched %>% filter(offshore_presence == 1 & oil > 0))/nrow(unprotected_unmatched)*100` %, `r nrow(unprotected_unmatched %>% filter(offshore_presence == 1 & wind > 0))/nrow(unprotected_unmatched)*100`% and `r nrow(unprotected_unmatched %>% filter(offshore_presence == 1 & other > 0))/nrow(unprotected_unmatched)*100` % for oil, wind and others).
+
+Within cells with MAS inside them, the number of MAS ranged between `r min(mpa_pressures$offshore_number)` and `r max(mpa_pressures$offshore_number)` MAS per cell, with an average of `r mean((mpa_pressures %>% filter(offshore_number > 0))$offshore_number)` MAS per cell (sd = `r sd((mpa_pressures %>% filter(offshore_number > 0))$offshore_number)` MAS). The number of MAS per cell was significantly lower in protected cells (mean = `r mean((protected %>% filter(offshore_number > 0))$offshore_number)`, sd = `r sd((protected %>% filter(offshore_number > 0))$offshore_number)` MAS per cell) than in matched cells (mean = `r mean((protected %>% filter(offshore_number > 0))$offshore_number)`, sd = `r sd((protected %>% filter(offshore_number > 0))$offshore_number)` MAS per cell, P \< 0.0001). 
+
+```{r figure-2, fig.cap = "(A) Average number of industrial activities per cell across the six large marine ecosystems for protected, matched, and unmatched cells. (B) Percentage of cells containing each industrial activity for each type of cell.",out.width= "80%"}
+knitr::include_graphics("/Users/raphael/Documents/These/R_projects/MPA_threats_europe/figures/Figure_2.png")
+```
+
+**Dredging and aggregate extraction**. We found dredging and aggregate extraction activity in `r  nrow(protected_matched %>% filter(dredge_presence == 1))/nrow(protected_matched) * 100` % of all protected and matched cells. Dredging and aggregate extraction was present in `r nrow(protected %>% filter(dredge_presence == 1))/nrow(protected) * 100` % of protected cells, `r nrow(unprotected %>% filter(dredge_presence == 1))/nrow(unprotected) * 100` % of matched cells and `r nrow(unprotected_unmatched %>% filter(dredge_presence == 1))/nrow(unprotected_unmatched) * 100` % of unmatched cells. 
+
+Within cells with dredging activity, dredging and aggregate extraction sites ranged between `r min(mpa_pressures$dredge_number,na.rm=T)`and `r max(mpa_pressures$dredge_number,na.rm=T)` per cell, with an average of `r mean((mpa_pressures %>% filter(dredge_number > 0))$dredge_number,na.rm=T)` dredging and aggregate extraction sites per cell (sd = `r sd((mpa_pressures %>% filter(dredge_number > 0))$dredge_number,na.rm=T)`). The number of dredging and extraction sites was significantly higher inside protected cells (mean = `r mean((protected %>% filter(dredge_number > 0))$dredge_number, na.rm=T)`, sd = `r sd((protected %>% filter(dredge_number > 0))$dredge_number, na.rm=T)` dredge/aggregate per cell) than in matched cells (mean = `r mean((unprotected %>% filter(dredge_number > 0))$dredge_number, na.rm=T)`, sd = `r sd((unprotected %>% filter(dredge_number > 0))$dredge_number, na.rm=T)` dredge/aggregate per cell, P \< 0.0001).
+
+**Desalination plants**. We found desalination plants in `r  nrow(protected_matched %>% filter(desalination_presence == 1))/nrow(protected_matched) * 100`% of all protected and matched cells. Desalination plants were present in `r nrow(protected %>% filter(desalination_presence == 1))/nrow(protected) * 100` % of protected cells, `r nrow(unprotected %>% filter(desalination_presence == 1))/nrow(unprotected) * 100` % of matched cells and `r nrow(unprotected_unmatched %>% filter(desalination_presence == 1))/nrow(unprotected_unmatched) * 100` % of unmatched cells.
+
+Within cells with desalination plants, the number of desalination plants ranged between `r min(mpa_pressures$desalination_number,na.rm=T)` and `r max(mpa_pressures$desalination_number,na.rm=T)` per cell with an average of `r round(mean((mpa_pressures %>% filter(desalination_number > 0))$desalination_number,na.rm=T),4)` desalination plants per cell (sd = `r sd((mpa_pressures %>% filter(desalination_number > 0))$desalination_number,na.rm=T)`).The number of desalination plants was not significantly higher or lower inside protected cells (mean = `r round(mean((protected %>% filter(desalination_number > 0))$desalination_number, na.rm=T),4)`, sd = `r sd((protected %>% filter(desalination_number > 0))$desalination_number, na.rm=T)` desalination plants per cell) than in matched cells (mean = `r round(mean((unprotected %>% filter(desalination_number > 0))$desalination_number, na.rm=T),4)`, sd = `r sd((unprotected %>% filter(desalination_number > 0))$desalination_number, na.rm=T)` dredge/aggregate per cell, P = 0.31).
+
+**Maritime ports**. We found maritime ports in `r  nrow(protected_matched %>% filter(port_presence == 1))/nrow(protected_matched) * 100`% of all protected and matched unprotected cells. Maritime ports were present in `r nrow(protected %>% filter(port_presence == 1))/nrow(protected) * 100` % of protected cells, `r nrow(unprotected %>% filter(port_presence == 1))/nrow(unprotected) * 100` % of matched cells and `r round(nrow(unprotected_unmatched %>% filter(port_presence == 1))/nrow(unprotected_unmatched) * 100,4)` % of unmatched cells. 
+
+Within cells with ports, the number of maritime ports ranged between `r min(mpa_pressures$ports_number,na.rm=T)` and `r max(mpa_pressures$ports_number,na.rm=T)` per cell with an average of `r round(mean((mpa_pressures %>% filter(ports_number > 0))$ports_number,na.rm=T),4)` ports per cell (sd = `r sd((mpa_pressures %>% filter(ports_number > 0))$ports_number,na.rm=T)`). The number of ports was not significantly higher or lower within protected cells (mean = `r mean((protected %>% filter(ports_number > 0))$ports_number, na.rm=T)`, sd = `r sd((protected %>% filter(ports_number > 0))$ports_number, na.rm=T)` ports per cell) than in matched cells (mean = `r mean((unprotected %>% filter(ports_number > 0))$ports_number, na.rm=T)`, sd = `r sd((unprotected %>% filter(ports_number > 0))$ports_number, na.rm=T)` ports per cell, P = 0.32).
+
+```{r figure-3, fig.cap = "Average number of each industrial activity per cell for protected, unprotected and matched and unprotected and unmatched cells.",out.width = "1122.52px"}
+knitr::include_graphics("/Users/raphael/Documents/These/R_projects/MPA_threats_europe/figures/Figure_3.jpg")
+```
+
+# Discussion
+
+Our study reaches the same conclusion as a growing body of research showing that, despite the growing number of MPAs, ocean protection is severely overestimated. Many MPAs do not offer any kind of protection against industrial activities, and in some cases industrial activities are even higher than outside. This is mainly due to poor reporting of MPAS, with some MPAs couting towards international targets despite the fact that they have no regulations in place, or due to poor legal definitions of MPAs, where industrial activities legally occur because the MPA's definition does not following scientific recommendations. Overall, it appears that many MPAs are designated in order to achieve rapid completion of international targets and easy political victories, without any real progress towards the protection of marine ecosystems, ocean carbon sinks and the livelihoods than depend on the ocean. This is particulary problematic in areas such as the EU where industrial pressures are widespread and growing. 
+
+However,  a complete map of industrial activities within MPAs was still lacking given the absence of standardized, complete and homogeneous datasets allowing easy estimations and comparisons across countries. We provide the first accurate estimations of the occurrence of industrial activities within MPAs across the EU. 
+
+## MPAs do not shield against industrial activities
+
+In conclusion, EU MPas do not shiled against industrial activities across the EU. 
+
+## Why ?
+
+Most MPAs do not mitigate or prevent industrial activities of occuring within their borders. In some cases, industrial activities were already present, meaning the MPA created on them is not compatible with IUCN guidelines. In other cases, industrial activities occur or were built after the MPA was created, meaning the legal definitions and rules of this MPA are not compatible with IUCN guidelines. THe presence of untracked fishing vessels also shows that monitoring within MPA is insufficient and necessary. 
+
+## Policy recommendations
+
+What do to from here ? Stronger legal definitions following IUCN guidelines. France, for instance, has its ows definition of strict protection which is not as strong as the EU one. MPAs which do not follow IUCN guidelines should not count towards international targets. Follow the law: EU Natura 2000 areas under the habitats directive should ban bottom trawling since 1992 and its not the case. Finally, stronger monitoring: organisms in charge of monitoring MPAs are often udnerstaffed and overworked, monitoring is poor. 
+
+## Limitations 
+
+\newpage
+
+# References
+
+::: {#refs custom-style="Bibliography"}
+:::
+
+
+
+
